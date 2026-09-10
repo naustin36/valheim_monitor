@@ -11,3 +11,6 @@ wheels/
 
 # Dev tools
 practice.py
+
+# Program-generated files
+config.json

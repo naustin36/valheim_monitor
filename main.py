@@ -31,11 +31,14 @@ def main():
             # Process the line
             if "Register PlayFab server" in line:
                 server_timestamp, server_name, server_ip = get_server_info(line)
-                print(f"{server_timestamp} Server Online with Name {server_name} with IP {server_ip}")
+                print(f"{server_timestamp} Server Online with Name {server_name} and IP {server_ip}")
 
             if f"Session {server_name} registered" in line:
                 timestamp, join_code = get_join_code(line)
                 print(f"{timestamp} PlayFab join code: {join_code}")
+
+            if "Game - OnApplicationQuit" in line:
+                print(f"{" ".join(line.split()[0:2])} Server Offline")
 
             if "Player joined server" in line:
                 num_connections += 1

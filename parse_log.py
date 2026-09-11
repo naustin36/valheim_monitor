@@ -15,7 +15,3 @@ def get_join_code(line: str) -> tuple[str, str]:
     # return timestamp and PlayFab join code
     line_sections = line.split()
     return " ".join(line_sections[0:2]), line_sections[-1]
-
-def player_joined(line: str) -> tuple[str, str, str]:
-    line_sections = line.split()
-    print("TEST/player_joined",line_sections)

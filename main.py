@@ -15,12 +15,11 @@ def main():
         return
 
     player_count: int = 0
+    wrong_password_flag = False
     #count_pattern = re.compile(r"now (\d+) player\(s\)")
     shutdown_pattern = re.compile(r"Game - OnApplicationQuit")
-    connections_pattern = [
-        re.compile(r"(Connections) (\d+) ZDOS:\d+\s+sent:\d+ recv:\d+"),
-        re.compile(r"^\S+\s+\S+\s+(\w+\s+\w+\s+\w+) .*, now (\d+) player\(s\)")
-    ]
+    connection_pattern = re.compile(r"^\S+\s+\S+\s+(\w+\s+\w+\s+\w+) .*, now (\d+) player\(s\)")
+    connection_check_pattern = re.compile(r"Connections (\d+) ZDOS:\d+\s+sent:\d+ recv:\d+")
     event_patterns = [
         (
             re.compile(r'Register PlayFab server "([^"]+)" with IP (\S+)'),
@@ -60,19 +59,30 @@ def main():
                 continue
 
             # Process the line
-            #if "Game server connected" in line:
-            #   print(f"{" ".join(line.split()[0:2])} Game server connected")
-
+            # Check for server related events
             for pattern, message in event_patterns:
                 match = pattern.search(line)
                 if match:
                     print(" ".join(line.split()[0:2]), message.format(*match.groups()))
 
-            for pattern in  connections_pattern:
-                match = pattern.search(line)
-                if match and int(match.group(2)) != player_count:
-                    player_count = int(match.group(2))
-                    print(f"{" ".join(line.split()[0:2])} {match.group(1)}! Current player count: {player_count}")
+            # Check for connection events
+            # If a wrong password event is detected, set flag and decrement player count manually. Valheim does not log this correctly.
+            if "has wrong password" in line:
+                print(f"{" ".join(line.split()[0:2])} Failed to join: Wrong password")
+                wrong_password_flag = True
+            match =  connection_pattern.search(line)
+            if match:
+                player_count = int(match.group(2))
+                if wrong_password_flag == True:
+                    player_count = max(0, player_count - 1)
+                    wrong_password_flag = False
+                print(f"{" ".join(line.split()[0:2])} {match.group(1)}! Current player count: {player_count}")
+
+            match = connection_check_pattern.search(line)
+            if match and int(match.group(1)) != player_count:
+                player_count = int(match.group(1))
+                print(f"Connection count mismatch: Corrected current player count to {player_count}")
+
 
             match = shutdown_pattern.search(line)
             if match:

@@ -17,6 +17,7 @@ def main():
     player_count: int = 0
     wrong_password_flag: bool = False
     shutdown_pattern: re.Pattern = re.compile(r"Game - OnApplicationQuit")
+    # Grab the first three words after the timestamp that describe a connection event, and the updated number of players
     connection_pattern: re.Pattern = re.compile(r"^\S+\s+\S+\s+(\w+\s+\w+\s+\w+) .*, now (\d+) player\(s\)")
     connection_check_pattern: re.Pattern = re.compile(r"Connections (\d+) ZDOS:\d+\s+sent:\d+ recv:\d+")
     event_patterns: list[tuple[re.Pattern, str]] = [
@@ -70,7 +71,6 @@ def main():
             if "has wrong password" in line:
                 print(f"{timestamp} Failed to join: Wrong password")
                 wrong_password_flag = True
-
             match =  connection_pattern.search(line)
             if match:
                 player_count = int(match.group(2))
@@ -79,6 +79,7 @@ def main():
                     wrong_password_flag = False
                 print(f"{timestamp} {match.group(1)}! Current player count: {player_count}")
 
+            # Check current players against server heartbeat report and update if needed
             match = connection_check_pattern.search(line)
             if match and int(match.group(1)) != player_count:
                 print(f"{timestamp} Player count mismatch: Corrected current player count from {player_count} to {int(match.group(1))}")

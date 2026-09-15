@@ -2,9 +2,10 @@ import time
 from pathlib import Path
 from config import *
 from parse_log import *
+import re
 
 def main():
-    print("Valheim Server Monitor")
+    print("Valheim Crossplay Server Monitor")
 
     # load config, set path to server log, and verify that log exists
     config = load_config()
@@ -15,8 +16,30 @@ def main():
 
     print(f"Loading log at {log_path}...")
 
-    num_connections = 0
-    server_name = ""
+    player_count: int = 0
+    count_pattern = re.compile(r"now (\d+) player\(s\)")
+    event_patterns = [
+        (
+            re.compile(r'Register PlayFab server "([^"]+)"'),
+            "Register PlayFab server {}"
+        ),
+        (
+            re.compile(r'Session "([^"]+)" registered with join code (\d+)'),
+            "Session {} registered with join code {}"
+        ),
+        (
+            re.compile(r'PlayFab network error in session'),
+            "PlayFab network error in session!"
+        ),
+        (
+            re.compile(r"with type '([^']+)' and code '(\d+)'"),
+            "{} code: {}"
+        ),
+        (
+            re.compile(r"Joined PlayFab Party network"),
+            "Joined PlayFab Party network"
+        )
+    ]
 
     with open(log_path, "r") as f:
         while True:
@@ -29,24 +52,22 @@ def main():
                 continue
 
             # Process the line
-            if "Register PlayFab server" in line:
-                server_timestamp, server_name, server_ip = get_server_info(line)
-                print(f"{server_timestamp} Server Online with Name {server_name} and IP {server_ip}")
+            if "Game server connected" in line:
+               print(f"{" ".join(line.split()[0:2])} Game server connected")
 
-            if f"Session {server_name} registered" in line:
-                timestamp, join_code = get_join_code(line)
-                print(f"{timestamp} PlayFab join code: {join_code}")
+            for pattern, message in event_patterns:
+                match = pattern.search(line)
+                if match:
+                    print(" ".join(line.split()[0:2]), message.format(*match.groups()))
+
+            player_count_updated = count_pattern.search(line)
+            if player_count_updated:
+                timestamp, update_event, player_count = update_player_count(line, player_count_updated)
+                print(f"{timestamp} {update_event}! Current player count: {player_count}")
 
             if "Game - OnApplicationQuit" in line:
                 print(f"{" ".join(line.split()[0:2])} Server Offline")
-
-            if "Player joined server" in line:
-                num_connections += 1
-                print(f"{" ".join(line.split()[0:2])} Player Joined! Total connected: {num_connections}")
-
-            if "Player connection lost" in line:
-                num_connections -= 1
-                print(f"{" ".join(line.split()[0:2])} Player left! Total connected: {num_connections}")
+                return
 
 if __name__ == "__main__":
     main()

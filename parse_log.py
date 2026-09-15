@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 def monitor_log(log_path: Path) -> None:
     pass
@@ -15,3 +16,10 @@ def get_join_code(line: str) -> tuple[str, str]:
     # return timestamp and PlayFab join code
     line_sections = line.split()
     return " ".join(line_sections[0:2]), line_sections[-1]
+
+def update_player_count(line: str, regex_match) -> tuple[str, str, int]:
+    split_line = line.split()
+    timestamp = " ".join(split_line[0:2])
+    update_event = " ".join(split_line[2:5])
+    player_count = int(regex_match.group(1))
+    return timestamp, update_event, player_count

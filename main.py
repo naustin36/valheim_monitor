@@ -16,6 +16,7 @@ def main():
 
     player_count: int = 0
     #count_pattern = re.compile(r"now (\d+) player\(s\)")
+    shutdown_pattern = re.compile(r"Game - OnApplicationQuit")
     connections_pattern = [
         re.compile(r"(Connections) (\d+) ZDOS:\d+\s+sent:\d+ recv:\d+"),
         re.compile(r"^\S+\s+\S+\s+(\w+\s+\w+\s+\w+) .*, now (\d+) player\(s\)")
@@ -41,6 +42,10 @@ def main():
             re.compile(r"Joined PlayFab Party network"),
             "Joined PlayFab Party network"
         ),
+        (
+            re.compile(r"Game server connected"),
+            "Game server connected"
+        ),
     ]
 
     print(f"Loading log at {log_path}...")
@@ -55,8 +60,8 @@ def main():
                 continue
 
             # Process the line
-            if "Game server connected" in line:
-               print(f"{" ".join(line.split()[0:2])} Game server connected")
+            #if "Game server connected" in line:
+            #   print(f"{" ".join(line.split()[0:2])} Game server connected")
 
             for pattern, message in event_patterns:
                 match = pattern.search(line)
@@ -69,15 +74,18 @@ def main():
                     player_count = int(match.group(2))
                     print(f"{" ".join(line.split()[0:2])} {match.group(1)}! Current player count: {player_count}")
 
-
+            match = shutdown_pattern.search(line)
+            if match:
+                print("Server Shutdown")
+                return
             #player_count_updated = count_pattern.search(line)
             #if player_count_updated:
             #    timestamp, update_event, player_count = update_player_count(line, player_count_updated)
             #    print(f"{timestamp} {update_event}! Current player count: {player_count}")
 
-            if "Game - OnApplicationQuit" in line:
-                print(f"{" ".join(line.split()[0:2])} Server Offline")
-                return
+            #if "Game - OnApplicationQuit" in line:
+            #    print(f"{" ".join(line.split()[0:2])} Server Offline")
+            #    return
 
 if __name__ == "__main__":
     main()

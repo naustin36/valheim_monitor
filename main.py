@@ -14,22 +14,24 @@ def main():
         print("Log file not found, please configure in config.json")
         return
 
-    print(f"Loading log at {log_path}...")
-
     player_count: int = 0
-    count_pattern = re.compile(r"now (\d+) player\(s\)")
+    #count_pattern = re.compile(r"now (\d+) player\(s\)")
+    connections_pattern = [
+        re.compile(r"(Connections) (\d+) ZDOS:\d+\s+sent:\d+ recv:\d+"),
+        re.compile(r"^\S+\s+\S+\s+(\w+\s+\w+\s+\w+) .*, now (\d+) player\(s\)")
+    ]
     event_patterns = [
         (
-            re.compile(r'Register PlayFab server "([^"]+)"'),
-            "Register PlayFab server {}"
+            re.compile(r'Register PlayFab server "([^"]+)" with IP (\S+)'),
+            "Registering PlayFab server {} with IP {}..."
         ),
         (
-            re.compile(r'Session "([^"]+)" registered with join code (\d+)'),
-            "Session {} registered with join code {}"
+            re.compile(r'Session "([^"]+)" with join code (\d+) and IP (\S+)'),
+            "Session {} active! Join code: {} IP: {}"
         ),
         (
             re.compile(r'PlayFab network error in session'),
-            "PlayFab network error in session!"
+            "PlayFab network error!"
         ),
         (
             re.compile(r"with type '([^']+)' and code '(\d+)'"),
@@ -38,9 +40,10 @@ def main():
         (
             re.compile(r"Joined PlayFab Party network"),
             "Joined PlayFab Party network"
-        )
+        ),
     ]
 
+    print(f"Loading log at {log_path}...")
     with open(log_path, "r") as f:
         while True:
             # Read each line in log file, from the top
@@ -60,10 +63,17 @@ def main():
                 if match:
                     print(" ".join(line.split()[0:2]), message.format(*match.groups()))
 
-            player_count_updated = count_pattern.search(line)
-            if player_count_updated:
-                timestamp, update_event, player_count = update_player_count(line, player_count_updated)
-                print(f"{timestamp} {update_event}! Current player count: {player_count}")
+            for pattern in  connections_pattern:
+                match = pattern.search(line)
+                if match and int(match.group(2)) != player_count:
+                    player_count = int(match.group(2))
+                    print(f"{" ".join(line.split()[0:2])} {match.group(1)}! Current player count: {player_count}")
+
+
+            #player_count_updated = count_pattern.search(line)
+            #if player_count_updated:
+            #    timestamp, update_event, player_count = update_player_count(line, player_count_updated)
+            #    print(f"{timestamp} {update_event}! Current player count: {player_count}")
 
             if "Game - OnApplicationQuit" in line:
                 print(f"{" ".join(line.split()[0:2])} Server Offline")

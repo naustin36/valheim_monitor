@@ -42,8 +42,8 @@ def main():
             "Joined PlayFab Party network"
         ),
         (
-            re.compile(r"Game server connected"),
-            "Game server connected"
+            re.compile(r"Game server (.*)"),
+            "Game server {}"
         ),
     ]
 

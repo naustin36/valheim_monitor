@@ -8,7 +8,9 @@ class ValheimServerMonitor:
         self.root = root
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         self.root.title("Valheim Server Monitor")
+        self.log_file = None
         self.wrong_password_flag = False
+        self.config = load_config()
 
         main_frame = ttk.Frame(self.root, padding=5)
         main_frame.grid(sticky=(N, W, E, S))
@@ -42,9 +44,17 @@ class ValheimServerMonitor:
 
         # Log Data
         self.log_file_path = StringVar()
-        self.log_file_path.set(load_config()["log_path"])
+        self.log_file_path.set(self.config["log_path"]) if self.config["log_path"] != "" else self.log_file_path.set("No log file path entered")
         ttk.Label(log_frame, text="Log File Location:").grid(column=1, row=1, sticky=E)
-        ttk.Label(log_frame, textvariable=self.log_file_path).grid(column=2, row=1, padx=5, sticky=W)
+        log_file_entry = ttk.Entry(log_frame, textvariable=self.log_file_path, width=50)
+        log_file_entry.grid(column=2, row=1, padx=5, sticky=(W,E))
+        log_file_entry.focus()
+        self.root.bind("<Return>", self.open_log)
+
+        ttk.Button(log_frame, text="Load Log", command=self.open_log).grid(column=3, row=1, sticky=W)
+
+        self.log_file_status = StringVar()
+        ttk.Label(log_frame, textvariable=self.log_file_status).grid(column=1, row=2, sticky=(N, W), columnspan=2)
 
         # Event log will take work. Probably try a tk.Text() widget with a scrollbar. For now, print event log to console.
         self.event_log = StringVar()
@@ -57,16 +67,41 @@ class ValheimServerMonitor:
         main_frame.rowconfigure(1, weight=1)
         log_frame.columnconfigure(2, weight=1)
 
+        self.open_log()
+
+    def open_log(self, *args):
         try:
+            # Clear any existing server information; it will be repopulated by the log
+            self.server_name.set("")
+            self.server_ip.set("")
+            self.server_join_code.set("")
+
+            # If a log file is already open, close it
+            if self.log_file:
+                self.log_file.close()
+                print("Log file handle closed")
+            # Open the new log file specified in the entry field
             self.log_file = open(self.log_file_path.get(), "r")
-            print(self.log_file_path.get(), "opened")
+            print(self.log_file_path.get(), "handle opened")
+
+            # Clear any log status errors
+            self.log_file_status.set("Log loaded successfully, monitoring")
+
+            # Update config.json with new log file path
+            if self.log_file_path.get() != self.config["log_path"]:
+                self.config["log_path"] = self.log_file_path.get()
+                save_config(self.config)
+                print("config.json updated with new log file")
+
+            # Read the new log
+            self.read_log()
         except OSError as e:
             print(e)
-            self.log_file_path.set(f"{e.strerror}: Please set log file location in config.json")
-
-        self.read_log()
+            self.log_file_status.set(f"{e.strerror}: Please verify log path is correct and log exists")
 
     def read_log(self) -> None:
+        if not self.log_file or self.log_file.closed:
+            return
         while True:
             # Read next line until all lines are read. Once caught up, return to root.mainloop
             line = self.log_file.readline()
@@ -109,6 +144,10 @@ class ValheimServerMonitor:
             if match:
                 print(timestamp, "Server Shutdown")
                 self.server_status.set("Offline")
+                self.log_file.close()
+                self.log_file_status.set("Server shutdown, log file closed")
+                print(f"log file closed: {self.log_file.closed}")
+                break
 
             # Check for server connections issues
             match = patterns.playfab_error_pattern.search(line)

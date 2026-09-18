@@ -1,5 +1,6 @@
 from tkinter import *
 from tkinter import ttk
+from tkinter.scrolledtext import ScrolledText
 from config import *
 import patterns
 
@@ -39,12 +40,12 @@ class ValheimServerMonitor:
         ttk.Label(server_frame, textvariable=self.server_status).grid(column=2, row=2, padx=5, sticky=W)
 
         self.player_count = IntVar()
-        ttk.Label(server_frame, text="Players Online:").grid(column=3, row=2, sticky=E)
-        ttk.Label(server_frame, textvariable=self.player_count).grid(column=4, row=2, padx=5, sticky=W)
+        ttk.Label(server_frame, text="Players Online:").grid(column=1, row=3, sticky=E)
+        ttk.Label(server_frame, textvariable=self.player_count).grid(column=2, row=3, padx=5, sticky=W)
 
         # Log Data
         self.log_file_path = StringVar()
-        self.log_file_path.set(self.config["log_path"]) if self.config["log_path"] != "" else self.log_file_path.set("No log file path entered")
+        self.log_file_path.set(self.config["log_path"])
         ttk.Label(log_frame, text="Log File Location:").grid(column=1, row=1, sticky=E)
         log_file_entry = ttk.Entry(log_frame, textvariable=self.log_file_path, width=50)
         log_file_entry.grid(column=2, row=1, padx=5, sticky=(W,E))
@@ -54,10 +55,11 @@ class ValheimServerMonitor:
         ttk.Button(log_frame, text="Load Log", command=self.open_log).grid(column=3, row=1, sticky=W)
 
         self.log_file_status = StringVar()
-        ttk.Label(log_frame, textvariable=self.log_file_status).grid(column=1, row=2, sticky=(N, W), columnspan=2)
+        ttk.Label(log_frame, textvariable=self.log_file_status).grid(column=1, row=2, sticky=(N, W), columnspan=2, pady=5)
 
         # Event log will take work. Probably try a tk.Text() widget with a scrollbar. For now, print event log to console.
-        self.event_log = StringVar()
+        self.event_log_display = ScrolledText(log_frame, width=100, height=20, state="disabled", wrap="word")
+        self.event_log_display.grid(column=1, row=3, columnspan=3)
         #ttk.Label(log_frame, text="Event Log:").grid(column=1, row=2, sticky=(N, E))
         #ttk.Label(log_frame, textvariable=self.event_log, relief="sunken").grid(column=2, row=2, padx=5, pady=5, sticky=W)
 
@@ -75,7 +77,9 @@ class ValheimServerMonitor:
             self.server_name.set("")
             self.server_ip.set("")
             self.server_join_code.set("")
-
+            self.event_log_display.config(state="normal")
+            self.event_log_display.delete("1.0", END)
+            self.event_log_display.config(state="disabled")
             # If a log file is already open, close it
             if self.log_file:
                 self.log_file.close()
@@ -85,7 +89,7 @@ class ValheimServerMonitor:
             print(self.log_file_path.get(), "handle opened")
 
             # Clear any log status errors
-            self.log_file_status.set("Log loaded successfully, monitoring")
+            self.log_file_status.set("Log loaded successfully, monitoring:")
 
             # Update config.json with new log file path
             if self.log_file_path.get() != self.config["log_path"]:
@@ -98,6 +102,12 @@ class ValheimServerMonitor:
         except OSError as e:
             print(e)
             self.log_file_status.set(f"{e.strerror}: Please verify log path is correct and log exists")
+
+    def log_event(self, event_message):
+        self.event_log_display.config(state="normal")
+        self.event_log_display.insert(END, event_message + "\n")
+        self.event_log_display.see(END)
+        self.event_log_display.config(state="disabled")
 
     def read_log(self) -> None:
         if not self.log_file or self.log_file.closed:
@@ -119,7 +129,7 @@ class ValheimServerMonitor:
             # Check for wrong passwords, then check for connection events
             if "has wrong password" in line:
                 self.wrong_password_flag = True
-                self.event_log.set(self.event_log.get() + "Failed to join: wrong password\n")
+                self.log_event("Failed to join: wrong password")
             match = patterns.connection_pattern.search(line)
             if match:
                 self.player_count.set(match.group(2))
@@ -129,7 +139,7 @@ class ValheimServerMonitor:
                     self.wrong_password_flag = False
                 log_string = f"{timestamp} {match.group(1)}! Current player count: {match.group(2)}"
                 print(log_string)
-                self.event_log.set(self.event_log.get() + log_string + "\n")
+                self.log_event(log_string)
 
             # Check for server heartbeat, and adjust active players if necessary
             match = patterns.connection_check_pattern.search(line)
@@ -137,16 +147,18 @@ class ValheimServerMonitor:
                 self.player_count.set(int(match.group(1)))
                 log_string = f"{timestamp} Server Heartbeat: Player count mismatch detected. Corrected player count to {match.group(1)}"
                 print(log_string)
-                self.event_log.set(self.event_log.get() + log_string + "\n")
+                self.log_event(log_string)
 
             # Check for server shutdown
             match = patterns.shutdown_pattern.search(line)
             if match:
                 print(timestamp, "Server Shutdown")
+                log_string = f"{timestamp} Server Shutdown. Log file closed."
                 self.server_status.set("Offline")
                 self.log_file.close()
-                self.log_file_status.set("Server shutdown, log file closed")
+                self.log_file_status.set("Server shutdown. Log file closed")
                 print(f"log file closed: {self.log_file.closed}")
+                self.log_event(log_string)
                 break
 
             # Check for server connections issues
@@ -158,9 +170,12 @@ class ValheimServerMonitor:
                     self.player_count.set(self.player_count.get() - 1)
                     log_string += f": Disconnect not properly logged. Player count corrected to {self.player_count.get()}"
                 print(log_string)
+                self.log_event(log_string)
             match = patterns.playfab_connection_pattern.search(line)
             if match:
-                print(timestamp, "Joined PlayFab Party network")
+                log_string = f"{timestamp} Joined PlayFab Party network"
+                print(log_string)
+                self.log_event(log_string)
                 self.server_status.set("Online")
 
             # Check for information-only event logs
@@ -169,7 +184,7 @@ class ValheimServerMonitor:
                 if match:
                     log_string = f"{timestamp} {message.format(*match.groups())}"
                     print(log_string)
-                    self.event_log.set(self.event_log.get() + log_string + "\n")
+                    self.log_event(log_string)
 
         # Call read_log again after 1000ms to check for new lines
         self.root.after(1000, self.read_log)

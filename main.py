@@ -82,7 +82,7 @@ def main():
             # Check current players against server heartbeat report and update if needed
             match = connection_check_pattern.search(line)
             if match and int(match.group(1)) != player_count:
-                print(f"{timestamp} Player count mismatch: Corrected current player count from {player_count} to {int(match.group(1))}")
+                print(f"{timestamp} Server Heartbeat: Current player count mismatch. Corrected current player count from {player_count} to {int(match.group(1))}")
                 player_count = int(match.group(1))
 
             match = shutdown_pattern.search(line)

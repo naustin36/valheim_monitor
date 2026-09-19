@@ -1,6 +1,8 @@
 ### VALHEIM CROSSPLAY SERVER MONITOR
 Because there isn't a good way to communicate directly with PlayFab's servers, this server monitor simply parses the valheim server log.
 
+To start the server monitor, run server_monitor.bat.
+
 To create the server log file, edit the start_headless_server.bat in the server directory to include -logfile "[desired location]" in the launch options.
 e.g. "valheim_server -nographics -batchmode -name "[server name] -port 2456 -world "[your world file name]" -password "[password]" -logfile "[C:/some_folder/log.txt]" -crossplay [etc, etc]
 

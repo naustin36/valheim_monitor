@@ -8,7 +8,7 @@ class ValheimServerMonitor:
     def __init__(self, root: Tk):
         self.root = root
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
-        self.root.title("Valheim Server Monitor")
+        self.title_name = "Valheim Crossplay Server Monitor"
         self.log_file = None
 
         # Flags
@@ -85,6 +85,7 @@ class ValheimServerMonitor:
         try:
             # Clear any existing server information; it will be repopulated by the log
             self.server_name.set("")
+            self.root.title(self.title_name)
             self.server_ip.set("")
             self.server_join_code.set("")
             self.event_log_display.config(state="normal")
@@ -126,6 +127,7 @@ class ValheimServerMonitor:
             match = patterns.server_info_pattern.search(line)
             if match:
                 self.server_name.set(match.group(1))
+                self.root.title(f"{self.title_name} - {self.server_name.get()}")
                 self.server_join_code.set(match.group(2))
                 self.server_ip.set(match.group(3))
                 self.server_status.set("Online")

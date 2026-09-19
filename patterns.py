@@ -7,6 +7,8 @@ server_info_pattern: re.Pattern = re.compile(r'Session "([^"]+)" with join code 
 playfab_error_pattern: re.Pattern = re.compile(r"with type '([^']+)' and code '(\d+)'")
 playfab_socket_timeout_pattern: re.Pattern = re.compile(r"ZRpc timeout detected")
 playfab_connection_pattern: re.Pattern = re.compile(r"Joined PlayFab Party network")
+player_zdoID_created_pattern: re.Pattern = re.compile(r"Got character ZDOID from (.*) : (\S+)")
+player_zdoID_destroyed_pattern: re.Pattern = re.compile(r"Destroying abandoned non persistent zdo (\S+)")
 event_patterns: list[tuple[re.Pattern, str]] = [
     (
         re.compile(r'Register PlayFab server "([^"]+)" with IP (\S+)'),

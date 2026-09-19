@@ -10,6 +10,8 @@ class ValheimServerMonitor:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         self.root.title("Valheim Server Monitor")
         self.log_file = None
+
+        # Flags
         self.wrong_password_flag = False
         self.error_4098_flag = False
         self.config = load_config()
@@ -22,6 +24,9 @@ class ValheimServerMonitor:
 
         log_frame = ttk.Frame(main_frame, padding=5)
         log_frame.grid(column=0, row=1, sticky=(N, W, E, S))
+
+        event_frame  = ttk.Labelframe(main_frame, text="Event Log", padding=5, borderwidth=1, relief="ridge")
+        event_frame.grid(column=0, row=2, sticky=(N, W, E, S))
 
         # Server Information
         self.server_name = StringVar()
@@ -41,10 +46,15 @@ class ValheimServerMonitor:
         ttk.Label(server_frame, textvariable=self.server_status).grid(column=2, row=2, padx=5, sticky=W)
 
         self.player_count = IntVar()
-        ttk.Label(server_frame, text="Players Online:").grid(column=1, row=3, sticky=E)
-        ttk.Label(server_frame, textvariable=self.player_count).grid(column=2, row=3, padx=5, sticky=W)
+        ttk.Label(event_frame, text="Players Online:").grid(column=1, row=1, sticky=(N, W))
+        ttk.Label(event_frame, textvariable=self.player_count).grid(column=2, row=1, sticky=(N, W))
 
-        # Log Data
+        self.player_dict: dict[str, str] = {}
+        self.player_list: list[str] = []
+        self.player_list_Var = StringVar()
+        self.player_listbox = Listbox(event_frame, listvariable=self.player_list_Var).grid(column=1, row=2, columnspan=2, padx=[0, 5], sticky=(N, W, E, S))
+
+        # Log and Player Data
         self.log_file_path = StringVar()
         self.log_file_path.set(self.config["log_path"])
         ttk.Label(log_frame, text="Log File Location:").grid(column=1, row=1, sticky=E)
@@ -58,15 +68,16 @@ class ValheimServerMonitor:
         self.log_file_status = StringVar()
         ttk.Label(log_frame, textvariable=self.log_file_status).grid(column=1, row=2, sticky=(N, W), columnspan=2, pady=5)
 
-        self.event_log_display = ScrolledText(log_frame, width=120, height=10, state="disabled", wrap="word")
-        self.event_log_display.grid(column=1, row=3, columnspan=3, sticky=(N, E, W, S))
+        self.event_log_display = ScrolledText(event_frame, width=105, height=10, state="disabled", wrap="word")
+        self.event_log_display.grid(column=3, row=2, sticky=(N, E, W, S))
 
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(0, weight=1)
-        main_frame.rowconfigure(1, weight=1)
+        main_frame.rowconfigure(2, weight=1)
         log_frame.columnconfigure(2, weight=1)
-        log_frame.rowconfigure(3, weight=1)
+        event_frame.columnconfigure(3, weight=1)
+        event_frame.rowconfigure(2, weight=1)
 
         self.open_log()
 
@@ -102,12 +113,6 @@ class ValheimServerMonitor:
             print(e)
             self.log_file_status.set(f"{e.strerror}: Please verify log path is correct and log exists")
 
-    def log_event(self, event_message):
-        self.event_log_display.config(state="normal")
-        self.event_log_display.insert(END, event_message + "\n")
-        self.event_log_display.see(END)
-        self.event_log_display.config(state="disabled")
-
     def read_log(self) -> None:
         if not self.log_file or self.log_file.closed:
             return
@@ -139,6 +144,23 @@ class ValheimServerMonitor:
                 log_string = f"{timestamp} {match.group(1)}! Current player count: {match.group(2)}"
                 print(log_string)
                 self.log_event(log_string)
+
+            # Check for player characters created or destroyed when players connect or disconnect
+            match = patterns.player_zdoID_created_pattern.search(line)
+            if match:
+                print(f"{timestamp} Player zdoID created/updated: Name: {match.group(1)} zdoID: {match.group(2)}")
+                if match.group(1) not in self.player_dict:
+                    self.player_logon(match.group(1))
+                    self.log_event(f"{timestamp} Character loaded: {match.group(1)}")
+                self.player_dict[match.group(1)] = match.group(2)
+
+            match = patterns.player_zdoID_destroyed_pattern.search(line)
+            if match:
+                for player_name in self.player_dict.copy():
+                    if match.group(1) == self.player_dict[player_name]:
+                        print(f"{timestamp} Player logged off. Name: {player_name} zdoID: {self.player_dict.copy()[player_name]}")
+                        self.player_logoff(player_name)
+                        self.log_event(f"{timestamp} Character removed: {player_name}")
 
             # Check for server heartbeat, and adjust active players if necessary
             match = patterns.connection_check_pattern.search(line)
@@ -181,7 +203,6 @@ class ValheimServerMonitor:
                 self.player_count.set(self.player_count.get() - 1)
                 self.log_event(log_string)
 
-
             # Check for information-only event logs
             for pattern, message in patterns.event_patterns:
                 match = pattern.search(line)
@@ -192,6 +213,21 @@ class ValheimServerMonitor:
 
         # Call read_log again after 1000ms to check for new lines
         self.root.after(1000, self.read_log)
+
+    def log_event(self, event_message):
+        self.event_log_display.config(state="normal")
+        self.event_log_display.insert(END, event_message + "\n")
+        self.event_log_display.see(END)
+        self.event_log_display.config(state="disabled")
+
+    def player_logon(self, player_name: str):
+        self.player_list.append(player_name)
+        self.player_list_Var.set(self.player_list)
+
+    def player_logoff(self, player_name: str):
+        self.player_list.remove(player_name)
+        self.player_list_Var.set(self.player_list)
+        del self.player_dict[player_name]
 
     # Handles closing the log file when the GUI window is closed
     def on_close(self) -> None:

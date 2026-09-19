@@ -5,6 +5,7 @@ connection_pattern: re.Pattern = re.compile(r"^\S+\s+\S+\s+(\w+\s+\w+\s+\w+) .*,
 connection_check_pattern: re.Pattern = re.compile(r"Connections (\d+) ZDOS:\d+\s+sent:\d+ recv:\d+")
 server_info_pattern: re.Pattern = re.compile(r'Session "([^"]+)" with join code (\d+) and IP (\S+)')
 playfab_error_pattern: re.Pattern = re.compile(r"with type '([^']+)' and code '(\d+)'")
+playfab_socket_timeout_pattern: re.Pattern = re.compile(r"ZRpc timeout detected")
 playfab_connection_pattern: re.Pattern = re.compile(r"Joined PlayFab Party network")
 event_patterns: list[tuple[re.Pattern, str]] = [
     (

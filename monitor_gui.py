@@ -11,6 +11,7 @@ class ValheimServerMonitor:
         self.root.title("Valheim Server Monitor")
         self.log_file = None
         self.wrong_password_flag = False
+        self.error_4098_flag = False
         self.config = load_config()
 
         main_frame = ttk.Frame(self.root, padding=5)
@@ -58,7 +59,7 @@ class ValheimServerMonitor:
         ttk.Label(log_frame, textvariable=self.log_file_status).grid(column=1, row=2, sticky=(N, W), columnspan=2, pady=5)
 
         # Event log will take work. Probably try a tk.Text() widget with a scrollbar. For now, print event log to console.
-        self.event_log_display = ScrolledText(log_frame, width=100, height=10, state="disabled", wrap="word")
+        self.event_log_display = ScrolledText(log_frame, width=120, height=10, state="disabled", wrap="word")
         self.event_log_display.grid(column=1, row=3, columnspan=3, sticky=(N, E, W, S))
         #ttk.Label(log_frame, text="Event Log:").grid(column=1, row=2, sticky=(N, E))
         #ttk.Label(log_frame, textvariable=self.event_log, relief="sunken").grid(column=2, row=2, padx=5, pady=5, sticky=W)
@@ -168,8 +169,7 @@ class ValheimServerMonitor:
                 log_string = f"{timestamp} PlayFab network {match.group(1)}: {match.group(2)}"
                 # If error 4098 when player disconnects, server doesn't properly log the disconnect. Manually reduce player count.
                 if int(match.group(2)) == 4098:
-                    self.player_count.set(self.player_count.get() - 1)
-                    log_string += f": Disconnect not properly logged. Player count corrected to {self.player_count.get()}"
+                    self.error_4098_flag = True
                 print(log_string)
                 self.log_event(log_string)
             match = patterns.playfab_connection_pattern.search(line)
@@ -178,6 +178,12 @@ class ValheimServerMonitor:
                 print(log_string)
                 self.log_event(log_string)
                 self.server_status.set("Online")
+            match = patterns.playfab_socket_timeout_pattern.search(line)
+            if match and self.error_4098_flag:
+                log_string = f"{timestamp} Socket timeout detected. Connection closed. Correcting player count from {self.player_count.get()} to {self.player_count.get() - 1}"
+                self.player_count.set(self.player_count.get() - 1)
+                self.log_event(log_string)
+
 
             # Check for information-only event logs
             for pattern, message in patterns.event_patterns:

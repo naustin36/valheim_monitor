@@ -58,11 +58,8 @@ class ValheimServerMonitor:
         self.log_file_status = StringVar()
         ttk.Label(log_frame, textvariable=self.log_file_status).grid(column=1, row=2, sticky=(N, W), columnspan=2, pady=5)
 
-        # Event log will take work. Probably try a tk.Text() widget with a scrollbar. For now, print event log to console.
         self.event_log_display = ScrolledText(log_frame, width=120, height=10, state="disabled", wrap="word")
         self.event_log_display.grid(column=1, row=3, columnspan=3, sticky=(N, E, W, S))
-        #ttk.Label(log_frame, text="Event Log:").grid(column=1, row=2, sticky=(N, E))
-        #ttk.Label(log_frame, textvariable=self.event_log, relief="sunken").grid(column=2, row=2, padx=5, pady=5, sticky=W)
 
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)

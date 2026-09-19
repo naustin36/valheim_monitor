@@ -4,6 +4,9 @@ from tkinter.scrolledtext import ScrolledText
 from config import *
 import patterns
 
+ERROR_CODES = {
+    "4098":"Player socket timeout"
+}
 class ValheimServerMonitor:
     def __init__(self, root: Tk):
         self.root = root
@@ -132,45 +135,25 @@ class ValheimServerMonitor:
                 self.server_ip.set(match.group(3))
                 self.server_status.set("Online")
 
-            # Check for wrong passwords, then check for connection events
-            if "has wrong password" in line:
-                self.wrong_password_flag = True
-                self.log_event("Failed to join: wrong password")
-            match = patterns.connection_pattern.search(line)
-            if match:
-                self.player_count.set(match.group(2))
-                # In case of wrong password, manually reduce the player count. Valheim does not log this properly.
-                if self.wrong_password_flag:
-                    self.player_count.set(int(match.group(2))-1)
-                    self.wrong_password_flag = False
-                log_string = f"{timestamp} {match.group(1)}! Current player count: {match.group(2)}"
-                print(log_string)
-                self.log_event(log_string)
-
-            # Check for player characters created or destroyed when players connect or disconnect
+            # Check for player logon
             match = patterns.player_zdoID_created_pattern.search(line)
             if match:
                 print(f"{timestamp} Player zdoID created/updated: Name: {match.group(1)} zdoID: {match.group(2)}")
+
                 if match.group(1) not in self.player_dict:
                     self.player_logon(match.group(1))
-                    self.log_event(f"{timestamp} Character loaded: {match.group(1)}")
+                    self.log_event(f"{timestamp} Player Joined: {match.group(1)}")
                 self.player_dict[match.group(1)] = match.group(2)
-
+                self.player_count.set(len(self.player_dict))
+            # Check for player logoff
             match = patterns.player_zdoID_destroyed_pattern.search(line)
             if match:
                 for player_name in self.player_dict.copy():
                     if match.group(1) == self.player_dict[player_name]:
                         print(f"{timestamp} Player logged off. Name: {player_name} zdoID: {self.player_dict.copy()[player_name]}")
                         self.player_logoff(player_name)
-                        self.log_event(f"{timestamp} Character removed: {player_name}")
-
-            # Check for server heartbeat, and adjust active players if necessary
-            match = patterns.connection_check_pattern.search(line)
-            if match and int(match.group(1)) != self.player_count.get():
-                self.player_count.set(int(match.group(1)))
-                log_string = f"{timestamp} Server Heartbeat: Player count mismatch detected. Corrected player count to {match.group(1)}"
-                print(log_string)
-                self.log_event(log_string)
+                        self.log_event(f"{timestamp} Player Left: {player_name}")
+                        self.player_count.set(len(self.player_dict))
 
             # Check for server shutdown
             match = patterns.shutdown_pattern.search(line)
@@ -184,25 +167,13 @@ class ValheimServerMonitor:
                 self.log_event(log_string)
                 break
 
-            # Check for server connections issues
+            # Check for server errors
             match = patterns.playfab_error_pattern.search(line)
             if match:
-                log_string = f"{timestamp} PlayFab network {match.group(1)}: {match.group(2)}"
-                # If error 4098 when player disconnects, server doesn't properly log the disconnect. Manually reduce player count.
-                if int(match.group(2)) == 4098:
-                    self.error_4098_flag = True
+                log_string = f"{timestamp} PlayFab network {match.group(1)} {match.group(2)}"
+                if match.group(2) in ERROR_CODES:
+                    log_string += f": {ERROR_CODES[match.group(2)]}"
                 print(log_string)
-                self.log_event(log_string)
-            match = patterns.playfab_connection_pattern.search(line)
-            if match:
-                log_string = f"{timestamp} Joined PlayFab Party network"
-                print(log_string)
-                self.log_event(log_string)
-                self.server_status.set("Online")
-            match = patterns.playfab_socket_timeout_pattern.search(line)
-            if match and self.error_4098_flag:
-                log_string = f"{timestamp} Socket timeout detected. Connection closed. Correcting player count from {self.player_count.get()} to {self.player_count.get() - 1}"
-                self.player_count.set(self.player_count.get() - 1)
                 self.log_event(log_string)
 
             # Check for information-only event logs

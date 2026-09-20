@@ -13,23 +13,22 @@ class ValheimServerMonitor:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         self.title_name = "Valheim Crossplay Server Monitor"
         self.log_file = None
-
-        # Flags
-        self.wrong_password_flag = False
-        self.error_4098_flag = False
         self.config = load_config()
 
         main_frame = ttk.Frame(self.root, padding=5)
         main_frame.grid(sticky=(N, W, E, S))
 
         server_frame = ttk.Labelframe(main_frame, text="Server Information", padding=5, borderwidth=1, relief="ridge")
-        server_frame.grid(column=0, row=0, sticky=(N, W, E, S))
+        server_frame.grid(column=0, row=0, sticky=(N, W, E, S), columnspan=2)
 
         log_frame = ttk.Frame(main_frame, padding=5)
-        log_frame.grid(column=0, row=1, sticky=(N, W, E, S))
+        log_frame.grid(column=0, row=1, sticky=(N, W, E, S), columnspan=2)
+
+        player_frame = ttk.Labelframe(main_frame, text="Player Info", padding=5, borderwidth=1, relief="ridge")
+        player_frame.grid(column=0, row=2, sticky=(N, W, E, S))
 
         event_frame  = ttk.Labelframe(main_frame, text="Event Log", padding=5, borderwidth=1, relief="ridge")
-        event_frame.grid(column=0, row=2, sticky=(N, W, E, S))
+        event_frame.grid(column=1, row=2, sticky=(N, W, E, S))
 
         # Server Information
         self.server_name = StringVar()
@@ -49,13 +48,13 @@ class ValheimServerMonitor:
         ttk.Label(server_frame, textvariable=self.server_status).grid(column=2, row=2, padx=5, sticky=W)
 
         self.player_count = IntVar()
-        ttk.Label(event_frame, text="Players Online:").grid(column=1, row=1, sticky=(N, W))
-        ttk.Label(event_frame, textvariable=self.player_count).grid(column=2, row=1, sticky=(N, W))
+        ttk.Label(player_frame, text="Players Online:").grid(column=1, row=1, sticky=(N, E))
+        ttk.Label(player_frame, textvariable=self.player_count).grid(column=2, row=1, sticky=(N, W))
 
         self.player_dict: dict[str, str] = {}
         self.player_list: list[str] = []
         self.player_list_Var = StringVar()
-        self.player_listbox = Listbox(event_frame, listvariable=self.player_list_Var).grid(column=1, row=2, columnspan=2, padx=[0, 5], sticky=(N, W, E, S))
+        self.player_listbox = Listbox(player_frame, listvariable=self.player_list_Var).grid(column=1, row=2, columnspan=2, sticky=(N, W, E, S))
 
         # Log and Player Data
         self.log_file_path = StringVar()

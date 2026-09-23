@@ -132,7 +132,18 @@ class ValheimServerMonitor:
                 self.root.title(f"{self.title_name} - {self.server_name.get()}")
                 self.server_join_code.set(match.group(2))
                 self.server_ip.set(match.group(3))
-                self.server_status.set("Online")
+
+            # Check server status
+            match = patterns.server_status_pattern.search(line)
+            if match:
+                log_string = f"{timestamp} Game server {match.group(1)}"
+                print(log_string)
+                self.log_event(log_string)
+                if match.group(1) == "connected":
+                    self.server_status.set("Online")
+                elif match.group(1) == "disconnected":
+                    self.server_status.set("Offline")
+
 
             # Check for player logon
             match = patterns.player_zdoID_created_pattern.search(line)

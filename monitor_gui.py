@@ -132,6 +132,12 @@ class ValheimServerMonitor:
                 self.root.title(f"{self.title_name} - {self.server_name.get()}")
                 self.server_join_code.set(match.group(2))
                 self.server_ip.set(match.group(3))
+                if self.server_ip.get() != self.config["current_ip"]:
+                    log_string = f"{timestamp} ALERT: New server IP: {self.server_ip.get()} (was {self.config["current_ip"]})"
+                    print(log_string)
+                    self.log_event(log_string)
+                    self.config["current_ip"] = self.server_ip.get()
+                    save_config(self.config)
 
             # Check server status
             match = patterns.server_status_pattern.search(line)

@@ -2,7 +2,8 @@ from pathlib import Path
 import json
 CONFIG_FILE = Path("config.json")
 CONFIG_DEFAULT = {
-    "log_path":""
+    "log_path":"",
+    "current_ip":None
 }
 
 def load_config() -> dict[str,str]:

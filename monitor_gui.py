@@ -86,13 +86,8 @@ class ValheimServerMonitor:
     def open_log(self, *args):
         try:
             # Clear any existing server information; it will be repopulated by the log
-            self.server_name.set("")
-            self.root.title(self.title_name)
-            self.server_ip.set("")
-            self.server_join_code.set("")
-            self.event_log_display.config(state="normal")
-            self.event_log_display.delete("1.0", END)
-            self.event_log_display.config(state="disabled")
+            self.server_info_reset()
+
             # If a log file is already open, close it
             if self.log_file:
                 self.log_file.close()
@@ -150,6 +145,17 @@ class ValheimServerMonitor:
                 elif match.group(1) == "disconnected":
                     self.server_status.set("Offline")
 
+            # Check for crashes
+            match = patterns.server_crash_pattern.search(line)
+            if match:
+                log_string = "Crash detected! Server offline\nCheck log at %USERPROFILE%/AppData/Local/Temp/IronGate/Valheim/Crashes for more information."
+                print(log_string)
+                self.log_event(log_string)
+                self.server_status.set("Offline")
+                print("log file closed")
+                self.log_event("Log file closed")
+                self.log_file.close()
+                break
 
             # Check for player logon
             match = patterns.player_zdoID_created_pattern.search(line)
@@ -217,6 +223,18 @@ class ValheimServerMonitor:
         self.player_list.remove(player_name)
         self.player_list_Var.set(self.player_list)
         del self.player_dict[player_name]
+
+    def server_info_reset(self) -> None:
+        # Clears all existing server and player information
+        self.server_name.set("")
+        self.root.title(self.title_name)
+        self.server_ip.set("")
+        self.server_join_code.set("")
+        self.event_log_display.config(state="normal")
+        self.event_log_display.delete("1.0", END)
+        self.event_log_display.config(state="disabled")
+        self.player_dict = {}
+        self.player_list = []
 
     # Handles closing the log file when the GUI window is closed
     def on_close(self) -> None:

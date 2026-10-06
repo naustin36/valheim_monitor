@@ -24,11 +24,11 @@ class ValheimServerMonitor:
         log_frame = ttk.Frame(main_frame, padding=5)
         log_frame.grid(column=0, row=1, sticky=(N, W, E, S), columnspan=2)
 
-        player_frame = ttk.Labelframe(main_frame, text="Player Info", padding=5, borderwidth=1, relief="ridge")
-        player_frame.grid(column=0, row=2, sticky=(N, W, E, S))
+        detail_frame = ttk.Frame(main_frame, padding=5)
+        detail_frame.grid(column=0, row=2, sticky=(N, W, E, S))
 
-        event_frame  = ttk.Labelframe(main_frame, text="Event Log", padding=5, borderwidth=1, relief="ridge")
-        event_frame.grid(column=1, row=2, sticky=(N, W, E, S))
+        event_frame  = ttk.Labelframe(detail_frame, text="Event Log", padding=5, borderwidth=1, relief="ridge")
+        event_frame.grid(column=3, row=2, sticky=(N, W, E, S))
 
         # Server Information
         self.server_name = StringVar()
@@ -48,13 +48,17 @@ class ValheimServerMonitor:
         ttk.Label(server_frame, textvariable=self.server_status).grid(column=2, row=2, padx=5, sticky=W)
 
         self.player_count = IntVar()
-        ttk.Label(player_frame, text="Players Online:").grid(column=1, row=1, sticky=(N, E))
-        ttk.Label(player_frame, textvariable=self.player_count).grid(column=2, row=1, sticky=(N, W))
+        ttk.Label(detail_frame, text="Players Online:").grid(column=1, row=1, sticky=(N, E))
+        ttk.Label(detail_frame, textvariable=self.player_count).grid(column=2, row=1, sticky=(N, W))
+
+        self.selected_player = StringVar()
+        ttk.Label(detail_frame, text="Selected Player Steam/PlayFab ID:").grid(column=3, row=1, sticky=(N,W), padx=5)
+        ttk.Label(detail_frame, textvariable=self.selected_player).grid(column=4, row=1, sticky=(N,W))
 
         self.player_dict: dict[str, str] = {}
         self.player_list: list[str] = []
         self.player_list_Var = StringVar()
-        self.player_listbox = Listbox(player_frame, listvariable=self.player_list_Var).grid(column=1, row=2, columnspan=2, sticky=(N, W, E, S))
+        self.player_listbox = Listbox(detail_frame, listvariable=self.player_list_Var).grid(column=1, row=2, columnspan=2, sticky=(N, W, E, S))
 
         # Log and Player Data
         self.log_file_path = StringVar()
@@ -235,6 +239,7 @@ class ValheimServerMonitor:
         self.event_log_display.config(state="disabled")
         self.player_dict = {}
         self.player_list = []
+        self.player_list_Var.set(self.player_list)
 
     # Handles closing the log file when the GUI window is closed
     def on_close(self) -> None:

@@ -14,6 +14,8 @@ class ValheimServerMonitor:
         self.title_name = "Valheim Crossplay Server Monitor"
         self.log_file = None
         self.config = load_config()
+        self.logon_flag: bool = False
+        self.held_ID: str = ""
 
         main_frame = ttk.Frame(self.root, padding=5)
         main_frame.grid(sticky=(N, W, E, S))
@@ -28,7 +30,7 @@ class ValheimServerMonitor:
         detail_frame.grid(column=0, row=2, sticky=(N, W, E, S))
 
         event_frame  = ttk.Labelframe(detail_frame, text="Event Log", padding=5, borderwidth=1, relief="ridge")
-        event_frame.grid(column=3, row=2, sticky=(N, W, E, S))
+        event_frame.grid(column=3, row=1, rowspan=2, columnspan=2, sticky=(N, W, E, S))
 
         # Server Information
         self.server_name = StringVar()
@@ -51,14 +53,16 @@ class ValheimServerMonitor:
         ttk.Label(detail_frame, text="Players Online:").grid(column=1, row=1, sticky=(N, E))
         ttk.Label(detail_frame, textvariable=self.player_count).grid(column=2, row=1, sticky=(N, W))
 
-        self.selected_player = StringVar()
-        ttk.Label(detail_frame, text="Selected Player Steam/PlayFab ID:").grid(column=3, row=1, sticky=(N,W), padx=5)
-        ttk.Label(detail_frame, textvariable=self.selected_player).grid(column=4, row=1, sticky=(N,W))
+        self.selected_player_ID = StringVar()
+        ttk.Label(main_frame, text="Selected Player PlayFab/Steam ID:").grid(column=0, row=10, sticky=(N,W))
+        ttk.Label(main_frame, textvariable=self.selected_player_ID).grid(column=0, row=11, sticky=(N,W))
 
-        self.player_dict: dict[str, str] = {}
+        self.player_dict: dict[str, dict] = {}
         self.player_list: list[str] = []
         self.player_list_Var = StringVar()
-        self.player_listbox = Listbox(detail_frame, listvariable=self.player_list_Var).grid(column=1, row=2, columnspan=2, sticky=(N, W, E, S))
+        self.player_listbox = Listbox(detail_frame, listvariable=self.player_list_Var)
+        self.player_listbox.grid(column=1, row=2, columnspan=2, sticky=(N, W, E, S))
+        self.player_listbox.bind("<<ListboxSelect>>", self.select_player)
 
         # Log and Player Data
         self.log_file_path = StringVar()
@@ -75,7 +79,7 @@ class ValheimServerMonitor:
         ttk.Label(log_frame, textvariable=self.log_file_status).grid(column=1, row=2, sticky=(N, W), columnspan=2, pady=5)
 
         self.event_log_display = ScrolledText(event_frame, width=105, height=10, state="disabled", wrap="word")
-        self.event_log_display.grid(column=3, row=2, sticky=(N, E, W, S))
+        self.event_log_display.grid(column=3, row=1, columnspan=2, rowspan=2, sticky=(N, E, W, S))
 
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
@@ -162,21 +166,24 @@ class ValheimServerMonitor:
                 break
 
             # Check for player logon
+            match = patterns.player_ID_pattern.search(line)
+            if match:
+                print(f"{timestamp} Player attempting connection: {match.group(1)}, {match.group(2)}")
+                self.held_ID = "{} | {}".format(*match.groups())
             match = patterns.player_zdoID_created_pattern.search(line)
             if match:
                 print(f"{timestamp} Player zdoID created/updated: Name: {match.group(1)} zdoID: {match.group(2)}")
-
                 if match.group(1) not in self.player_dict:
-                    self.player_logon(match.group(1))
+                    self.player_logon(match.group(1), self.held_ID)
                     self.log_event(f"{timestamp} Player Joined: {match.group(1)}")
-                self.player_dict[match.group(1)] = match.group(2)
+                self.player_dict[match.group(1)]["ZDOID"] = match.group(2)
                 self.player_count.set(len(self.player_dict))
             # Check for player logoff
             match = patterns.player_zdoID_destroyed_pattern.search(line)
             if match:
                 for player_name in self.player_dict.copy():
-                    if match.group(1) == self.player_dict[player_name]:
-                        print(f"{timestamp} Player logged off. Name: {player_name} zdoID: {self.player_dict.copy()[player_name]}")
+                    if match.group(1) == self.player_dict[player_name]["ZDOID"]:
+                        print(f"{timestamp} Player logged off: {player_name} {self.player_dict.copy()[player_name]}")
                         self.player_logoff(player_name)
                         self.log_event(f"{timestamp} Player Left: {player_name}")
                         self.player_count.set(len(self.player_dict))
@@ -213,15 +220,23 @@ class ValheimServerMonitor:
         # Call read_log again after 1000ms to check for new lines
         self.root.after(1000, self.read_log)
 
+    def select_player(self, *args):
+        selection = self.player_listbox.curselection()
+        if selection:
+            player = self.player_listbox.get(selection[0])
+            self.selected_player_ID.set(self.player_dict[player]["account_ID"])
+
     def log_event(self, event_message):
         self.event_log_display.config(state="normal")
         self.event_log_display.insert(END, event_message + "\n")
         self.event_log_display.see(END)
         self.event_log_display.config(state="disabled")
 
-    def player_logon(self, player_name: str):
+    def player_logon(self, player_name: str, player_id: str):
         self.player_list.append(player_name)
         self.player_list_Var.set(self.player_list)
+        self.player_dict[player_name] = {"ZDOID":None, "account_ID":None}
+        self.player_dict[player_name]["account_ID"] = self.held_ID
 
     def player_logoff(self, player_name: str):
         self.player_list.remove(player_name)
